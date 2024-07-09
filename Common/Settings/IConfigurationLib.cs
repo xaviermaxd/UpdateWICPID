@@ -18,6 +18,11 @@ namespace Common.Settings
         string PrefixWicConnection { get; }
         string GetAppointmentsByFilterController { get; }
 
+        // SecurityAPI
+        string UrlBaseSecurityAPI { get; }
+        string PrefixSecurityAPI { get; }
+        string ChangeWicIDController { get; }
+
         int SuccessCode { get; }
         string SuccessMsgES { get; }
         string SuccessMsgEN { get; }

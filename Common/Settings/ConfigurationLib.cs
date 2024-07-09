@@ -29,6 +29,12 @@ namespace Common.Settings
         public string PrefixWicConnection => Configuration.GetSection("WIConnectionAPI")["Prefix"];
         public string GetAppointmentsByFilterController => Configuration.GetSection("WIConnectionAPI")["GetAppointmentsByFilterController"];
 
+        // SecurityAPI
+        public string UrlBaseSecurityAPI => Configuration.GetSection("SecurityAPI")["UrlBase"];
+        public string PrefixSecurityAPI => Configuration.GetSection("SecurityAPI")["Prefix"];
+        public string ChangeWicIDController => Configuration.GetSection("SecurityAPI")["ChangeWicIDController"];
+
+
         public int SuccessCode => Convert.ToInt32(Configuration.GetSection("AppConfiguration")["SuccessCode"]);
         public string SuccessMsgES => Configuration.GetSection("AppConfiguration")["SuccessMsgES"];
         public string SuccessMsgEN => Configuration.GetSection("AppConfiguration")["SuccessMsgEN"];

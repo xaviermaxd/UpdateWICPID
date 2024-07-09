@@ -63,7 +63,17 @@ public class Program
                     if (response != null && response.Any())
                     {
                         var newWicID = response.First().WICPID;
-                        dExecutionUpdateWicPID.UpdateWicID(participant.FirstName, participant.FirstLastName, participant.Birthdate, newWicID, executionID);
+                        Console.WriteLine($"Request Body: {JsonConvert.SerializeObject(new REQChangeWicID { UserID = participant.ID, WicID = newWicID })}");
+                        try
+                        {
+                            await participantHelper.ChangeWicIDAsync(participant.ID, newWicID);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error changing WicID for participant {participant.FirstName} {participant.FirstLastName}: {ex.Message}");
+                            dExecutionUpdateWicPID.MarkParticipantNotFound(participant.FirstName, participant.FirstLastName, participant.Birthdate, executionID);
+                            notFoundCount++;
+                        }
                     }
                     else
                     {
