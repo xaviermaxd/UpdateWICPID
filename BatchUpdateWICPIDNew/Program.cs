@@ -33,6 +33,23 @@ public class Program
 
         int notFoundCount = 0;
 
+        if (DateTime.Now.DayOfWeek == DayOfWeek.Saturday)
+        {
+            await RetryNotFoundParticipants(dExecutionUpdateWicPID, participantHelper, executionID);
+        }
+        else
+        {
+            await ProcessNewParticipants(dExecutionUpdateWicPID, participantHelper, executionID);
+        }
+
+        Console.WriteLine("The application will close in 30 seconds...");
+        System.Threading.Thread.Sleep(30000); // Espera 30 segundos antes de cerrar la consola
+    }
+
+    static async Task ProcessNewParticipants(DExecutionUpdateWicPID dExecutionUpdateWicPID, ParticipantHelper participantHelper, int executionID)
+    {
+        int notFoundCount = 0;
+
         try
         {
             var participants = dExecutionUpdateWicPID.GetNewParticipantsForUpdate(DateTime.Now);
@@ -97,9 +114,79 @@ public class Program
             UpdateExecution(dExecutionUpdateWicPID, executionID, false, ex.Message, notFoundCount);
             Console.WriteLine($"Error: {ex.Message}");
         }
+    }
 
-        Console.WriteLine("The application will close in 30 seconds...");
-        System.Threading.Thread.Sleep(30000); // Espera 30 segundos antes de cerrar la consola
+    static async Task RetryNotFoundParticipants(DExecutionUpdateWicPID dExecutionUpdateWicPID, ParticipantHelper participantHelper, int executionID)
+    {
+        int notFoundCount = 0;
+
+        try
+        {
+            var participants = dExecutionUpdateWicPID.GetParticipantsToRetry();
+            Console.WriteLine("Participants to retry fetched:");
+            foreach (var participant in participants)
+            {
+                Console.WriteLine(JsonConvert.SerializeObject(participant, Formatting.Indented));
+            }
+
+            foreach (var participant in participants)
+            {
+                var formattedBirthDate = participant.Birthdate.ToString("yyyy-MM-ddTHH:mm:ss");
+                Console.WriteLine($"Formatted Birthdate for participant {participant.FirstName} {participant.FirstLastName}: {formattedBirthDate}");
+
+                var request = new ParticipantGetWicPIDRequestV1
+                {
+                    FirstName = participant.FirstName,
+                    LastName = participant.FirstLastName,
+                    BirthDay = formattedBirthDate
+                };
+
+                string requestBody = JsonConvert.SerializeObject(request);
+                Console.WriteLine($"Request Body for participant {participant.FirstName} {participant.FirstLastName}: {requestBody}");
+
+                try
+                {
+                    var response = await participantHelper.GetListParticipantsAsync(request);
+                    if (response != null && response.Any())
+                    {
+                        var newWicID = response.First().WICPID;
+                        Console.WriteLine($"Request Body: {JsonConvert.SerializeObject(new REQChangeWicID { UserID = participant.ID, WicID = newWicID })}");
+                        try
+                        {
+                            await participantHelper.ChangeWicIDAsync(participant.ID, newWicID);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error changing WicID for participant {participant.FirstName} {participant.FirstLastName}: {ex.Message}");
+                            dExecutionUpdateWicPID.MarkParticipantNotFound(participant.FirstName, participant.FirstLastName, participant.Birthdate, executionID);
+                            dExecutionUpdateWicPID.UpdateRetryNotFound(participant.ID);
+                            notFoundCount++;
+                        }
+                    }
+                    else
+                    {
+                        dExecutionUpdateWicPID.MarkParticipantNotFound(participant.FirstName, participant.FirstLastName, participant.Birthdate, executionID);
+                        dExecutionUpdateWicPID.UpdateRetryNotFound(participant.ID);
+                        notFoundCount++;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error fetching participant {participant.FirstName} {participant.FirstLastName}: {ex.Message}");
+                    dExecutionUpdateWicPID.MarkParticipantNotFound(participant.FirstName, participant.FirstLastName, participant.Birthdate, executionID);
+                    dExecutionUpdateWicPID.UpdateRetryNotFound(participant.ID);
+                    notFoundCount++;
+                }
+            }
+
+            UpdateExecution(dExecutionUpdateWicPID, executionID, true, null, notFoundCount);
+            Console.WriteLine("All data has been successfully processed.");
+        }
+        catch (Exception ex)
+        {
+            UpdateExecution(dExecutionUpdateWicPID, executionID, false, ex.Message, notFoundCount);
+            Console.WriteLine($"Error: {ex.Message}");
+        }
     }
 
     static int InsertExecution(DExecutionUpdateWicPID dExecutionUpdateWicPID)

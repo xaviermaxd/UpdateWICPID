@@ -95,22 +95,50 @@ namespace Infraestructure
             return participants;
         }
 
-        public void UpdateWicID(string firstName, string firstLastName, DateTime birthdate, string wicID, int executionID)
+        public List<User> GetParticipantsToRetry()
+        {
+            var participants = new List<User>();
+
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                using (var command = new SqlCommand("GetParticipantsToRetry", connection))
+                {
+                    command.CommandType = CommandType.StoredProcedure;
+
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            var user = new User
+                            {
+                                ID = reader.GetInt32(0),
+                                FirstName = reader.GetString(1),
+                                FirstLastName = reader.GetString(2),
+                                Birthdate = reader.GetDateTime(3),
+                                Notfound = reader.GetInt32(4)
+                            };
+                            participants.Add(user);
+                            Console.WriteLine($"Fetched User to retry: {JsonConvert.SerializeObject(user, Formatting.Indented)}");
+                        }
+                    }
+                }
+            }
+            return participants;
+        }
+
+        public void UpdateRetryNotFound(int userID)
         {
             using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-                using (var command = new SqlCommand("UpdateWicIDByDetails", connection))
+                using (var command = new SqlCommand("UpdateRetryNotFound", connection))
                 {
                     command.CommandType = CommandType.StoredProcedure;
-                    command.Parameters.AddWithValue("@FirstName", firstName);
-                    command.Parameters.AddWithValue("@FirstLastName", firstLastName);
-                    command.Parameters.AddWithValue("@Birthdate", birthdate);
-                    command.Parameters.AddWithValue("@WicID", wicID);
-                    command.Parameters.AddWithValue("@ExecutionID", executionID);
+                    command.Parameters.AddWithValue("@UserID", userID);
 
                     command.ExecuteNonQuery();
-                    Console.WriteLine($"Updated WicID for User: {firstName} {firstLastName}");
+                    Console.WriteLine($"Updated retry count for User ID: {userID}");
                 }
             }
         }
